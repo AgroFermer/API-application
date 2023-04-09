@@ -2,12 +2,20 @@ var express = require('express');
 var router = express.Router();
 var fs = require("fs")
 const axios = require('axios');
-
+const bodyParser = require('body-parser');
 
 /* Проверка на бота */
 router.use(express.json());
+router.use(bodyParser.text());
+
 router.post('/audit', async(req, res) => {
-    const { url } = req.body; // Получение ссылки из тела запроса
+    console.log(req.body)
+    const decode = atob(req.body); // декодируем полученый текст 
+
+    const about = JSON.parse(decode) // превращаем даный текст в json объект
+
+    const { url } = about; // Получение ссылки из тела запроса
+    console.log(url)
     const ip = req.ip; // Получение IP запроса 
 
     let botCount = 0;
@@ -31,18 +39,18 @@ router.post('/audit', async(req, res) => {
 
             // Сохраняем массив с IP-адресами в файле
             fs.writeFileSync('ips.json', JSON.stringify(ips), 'utf8');
-
-            res.json("Это Бот!");
+            console.log("Bot")
+            res.json("Bot");
 
         } else {
-
-            res.json("Это не Бот!");
+            console.log("Non-Bot")
+            res.json("Non-Bot");
         }
 
 
         // Отправка ответа с данными, полученными по ссылке
     } catch (error) {
-        console.error(error);
+        // console.error(error);
         res.status(500).json({ message: 'Ошибка при запросе данных по указанной ссылке' });
     }
 });
@@ -51,33 +59,33 @@ router.post('/audit', async(req, res) => {
 
 // отправка данных на AppsFlyer
 
-router.post('/events', (req, res) => {
-    const yard = req.query;
+router.post('/events', async(req, res) => {
+    try {
+        const yard = req.query;
 
-    const config = {
-        method: 'POST',
-        url: `https://api2.appsflyer.com/inappevent/${yard.APP_BUNDLE}`,
-        headers: {
-            accept: 'application/json',
-            'content-type': 'application/json',
-            authentication: yard.DevKey
-        },
-        data: yard
-    };
-
-    axios(config)
-        .then(response => {
-            res.send(response.data);
-
-            if (response.data == "ok") {
-                console.log("Data transferred successfully, Данные переданы успешно");
-            } else {
-                console.log(yard.APP_BUNDLE);
-            }
-        })
-        .catch(error => {
-            console.error(error);
+        const response = await axios({
+            method: 'post',
+            url: `https://api2.appsflyer.com/inappevent/${yard.bundle}`,
+            headers: {
+                accept: 'application/json',
+                'content-type': 'application/json',
+                authentication: yard.DevKey
+            },
+            data: yard
         });
+        res.send(response.data);
+
+        if (response.data === 'ok') {
+            console.log(yard);
+            console.log('Data transferred successfully, Данные переданы успешно');
+        }
+    } catch (error) {
+        res.send(error.response.statusText)
+            //console.error(error);
+        console.log(error.response.statusText);
+        console.log(error.data);
+
+    }
 });
 
 // Запуск сервера
