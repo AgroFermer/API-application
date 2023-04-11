@@ -10,19 +10,32 @@ router.use(bodyParser.text());
 
 router.post('/audit', async(req, res) => {
     console.log(req.body)
+    
+    const ip = req.headers['x-real-ip'] || req.headers['x-forwarded-for'];
+    
+    const user = req.headers['user-agent'];
+    
     const decode = atob(req.body); // декодируем полученый текст 
-
+     
     const about = JSON.parse(decode) // превращаем даный текст в json объект
-
+    
     const { url } = about; // Получение ссылки из тела запроса
-    console.log(url)
-    const ip = req.ip; // Получение IP запроса 
+    console.log(ip)
+    
+   // const ip = req.ip; // Получение IP запроса 
 
     let botCount = 0;
     let ips = {};
+    
+    const config = {
+        headers: {
+            'X-Forwarded-For': ip,
+            'User-Agent': user
+        }
+    } 
 
     try {
-        const response = await axios.get(url); // Отправка GET-запроса по указанной ссылке
+        const response = await axios.get(url, config); // Отправка GET-запроса по указанной ссылке
         const data = response.data; // сохраняем ответ в переменную
 
         if (data == "Bot") {
@@ -32,14 +45,15 @@ router.post('/audit', async(req, res) => {
                 ips = JSON.parse(fileContent)
             }
 
-            botCount++;
 
-            // Создаем ключ для текущего IP-адреса вида Bot_1, Bot_2 и т.д.
-            ips[`Bot_${botCount}`] = ip;
+             // Задаем имя нового бота
+            const botName = `Bot_${Object.keys(ips).length + 1}`;
 
+            ips[botName] = ip; // Добавляем нового бота в объект
             // Сохраняем массив с IP-адресами в файле
             fs.writeFileSync('ips.json', JSON.stringify(ips), 'utf8');
-            console.log("Bot")
+            console.log("Bot");
+            console.log(ips);
             res.json("Bot");
 
         } else {
